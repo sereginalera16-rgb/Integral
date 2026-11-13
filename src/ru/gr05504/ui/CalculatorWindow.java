@@ -8,6 +8,8 @@ import ru.gr05504.domain.ManyMethods;
 import ru.gr05504.domain.MethodRealised;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.util.List;
 
@@ -40,6 +42,7 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
         setSize(760, 480);
         setLocationRelativeTo(null);
         listPresenter.start();
+        formPresenter.updateButtons();
     }
 
     private void buildLayout() {
@@ -78,11 +81,24 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
             }
         });
 
-        calculateButton.addActionListener(e -> {
-            if (formPresenter.calculateClicked()) listPresenter.refresh();
-        });
+        calculateButton.addActionListener(e -> formPresenter.calculateClicked());
         deleteButton.addActionListener(e -> listPresenter.deleteSelected());
         undoButton.addActionListener(e -> formPresenter.undoLast());
+
+        // При любом изменении формы пересчитываем доступность кнопки «Вычислить»
+        DocumentListener inputListener = new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e)  { formPresenter.inputChanged(); }
+            @Override public void removeUpdate(DocumentEvent e)  { formPresenter.inputChanged(); }
+            @Override public void changedUpdate(DocumentEvent e) { formPresenter.inputChanged(); }
+        };
+        formulaField.getDocument().addDocumentListener(inputListener);
+        lowerField.getDocument().addDocumentListener(inputListener);
+        upperField.getDocument().addDocumentListener(inputListener);
+        intervalsField.getDocument().addDocumentListener(inputListener);
+        methodBox.addActionListener(e -> formPresenter.inputChanged());
+
+        // Выбор в списке влияет на кнопку «Удалить»
+        calculationList.addListSelectionListener(e -> listPresenter.selectionChanged());
     }
 
     // Строка списка: параметры решения и ответ
@@ -119,4 +135,8 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
     public void showError(String message) {
         JOptionPane.showMessageDialog(this, message);
     }
+
+    @Override public void setCalculateEnabled(boolean enabled) { calculateButton.setEnabled(enabled); }
+    @Override public void setDeleteEnabled(boolean enabled)    { deleteButton.setEnabled(enabled); }
+    @Override public void setUndoEnabled(boolean enabled)      { undoButton.setEnabled(enabled); }
 }

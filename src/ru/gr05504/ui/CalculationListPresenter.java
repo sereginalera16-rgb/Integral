@@ -1,12 +1,16 @@
 // ui/CalculationListPresenter.java
 package ru.gr05504.ui;
 
+import ru.gr05504.application.CalculationObserver;
 import ru.gr05504.application.CalculationService;
 import ru.gr05504.application.CommandHistory;
 import ru.gr05504.application.DeleteCommand;
 import ru.gr05504.domain.Calculation;
 
-public class CalculationListPresenter {
+import java.util.List;
+
+// Наблюдатель: сервис сам сообщает ему об изменении списка расчётов
+public class CalculationListPresenter implements CalculationObserver {
     private final CalculatorView view;
     private final CalculationService service;
     private final CommandHistory history;
@@ -22,21 +26,29 @@ public class CalculationListPresenter {
     }
 
     public void start() {
-        refresh();
+        service.addObserver(this);   // подписываемся на изменения
     }
 
-    public void refresh() {
-        view.showCalculations(service.getAll());
+    @Override
+    public void calculationsChanged(List<Calculation> calculations) {
+        view.showCalculations(calculations);
+        updateButtons();
+    }
+
+    // Вызывается окном при смене выделения в списке
+    public void selectionChanged() {
+        updateButtons();
+    }
+
+    public void updateButtons() {
+        view.setDeleteEnabled(deleteCommand().canExecute());
     }
 
     public void deleteSelected() {
-        Calculation calculation = view.getSelected();
-        if (calculation == null) {
-            view.showError("Выберите расчёт в списке");
-            return;
-        }
-        //service.delete(calculation);
-        history.execute(new DeleteCommand(service, calculation));
-        refresh();
+        history.execute(deleteCommand());
+    }
+
+    private DeleteCommand deleteCommand() {
+        return new DeleteCommand(service, view.getSelected());
     }
 }

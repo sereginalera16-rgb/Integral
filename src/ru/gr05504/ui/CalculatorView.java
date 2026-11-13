@@ -19,4 +19,9 @@ public interface CalculatorView {
     void clearForm();
     void showCalculations(List<Calculation> calculations);
     void showError(String message);
+
+    // Доступность кнопок (решается через Command.canExecute)
+    void setCalculateEnabled(boolean enabled);
+    void setDeleteEnabled(boolean enabled);
+    void setUndoEnabled(boolean enabled);
 }

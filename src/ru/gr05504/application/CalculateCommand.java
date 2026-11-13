@@ -28,6 +28,15 @@ public class CalculateCommand implements Command{
         this.method = method;
     }
 
+    // Команду можно выполнить, если формула введена, пределы корректны и отрезков >= 1
+    @Override
+    public boolean canExecute() {
+        return formula != null && !formula.isBlank()
+                && method != null
+                && lower < upper
+                && intervals >= 1;
+    }
+
     @Override
     public void execute() {
         calculation = service.calculate(formula, lower, upper, intervals, method);

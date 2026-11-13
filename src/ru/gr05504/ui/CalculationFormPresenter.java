@@ -18,33 +18,50 @@ public class CalculationFormPresenter {
         this.view = view;
         this.service = service;
         this.history = history;
+        // Наблюдаем за историей команд: от неё зависит кнопка «Отменить»
+        history.addObserver(this::updateButtons);
     }
 
-    // Возвращает true, если расчёт выполнен и сохранён
-    public boolean calculateClicked() {
+    public void calculateClicked() {
         try {
-            String formula = view.getFormula().trim();
-            if (formula.isEmpty())
-                throw new IllegalArgumentException("Введите формулу, например sin(x)");
-            double lower = parseNumber(view.getLowerText(), "Нижний предел");
-            double upper = parseNumber(view.getUpperText(), "Верхний предел");
-            int intervals = parseInteger(view.getIntervalsText(), "Число отрезков");
-            //service.calculate(formula, lower, upper, intervals, view.getMethod());
-            history.execute(new CalculateCommand(service, formula, lower, upper, intervals, view.getMethod()));
-            view.clearForm();
-            return true;
+            if (history.execute(buildCommand())) view.clearForm();
         } catch (IllegalArgumentException ex) {
             view.showError(ex.getMessage());
-            return false;
         }
     }
 
-    public void undoLast(){
-        if (!history.undo()){
-            view.showError("Отменять нечего!");
-            return;
+    public void undoLast() {
+        history.undo();
+        // Список обновлять вручную больше не нужно — это делает Наблюдатель
+    }
+
+    // Вызывается окном при любом изменении полей формы
+    public void inputChanged() {
+        updateButtons();
+    }
+
+    public void updateButtons() {
+        view.setCalculateEnabled(canCalculate());
+        view.setUndoEnabled(history.canUndo());
+    }
+
+    private boolean canCalculate() {
+        try {
+            return buildCommand().canExecute();
+        } catch (IllegalArgumentException ex) {
+            return false;   // поля пока заполнены неверно
         }
-        view.showCalculations(service.getAll()); // УБРАТЬ! после добавления Observer
+    }
+
+    // Собирает команду из полей формы; при ошибке ввода бросает IllegalArgumentException
+    private CalculateCommand buildCommand() {
+        String formula = view.getFormula().trim();
+        if (formula.isEmpty())
+            throw new IllegalArgumentException("Введите формулу, например sin(x)");
+        double lower = parseNumber(view.getLowerText(), "Нижний предел");
+        double upper = parseNumber(view.getUpperText(), "Верхний предел");
+        int intervals = parseInteger(view.getIntervalsText(), "Число отрезков");
+        return new CalculateCommand(service, formula, lower, upper, intervals, view.getMethod());
     }
 
     private double parseNumber(String text, String fieldName) {

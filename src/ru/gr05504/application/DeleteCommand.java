@@ -14,6 +14,12 @@ public class DeleteCommand implements Command{
         this.calculation = calculation;
     }
 
+    // Удалять можно, только если расчёт выбран и он ещё есть в хранилище
+    @Override
+    public boolean canExecute() {
+        return service.contains(calculation);
+    }
+
     @Override
     public void execute() {
         service.delete(calculation);
