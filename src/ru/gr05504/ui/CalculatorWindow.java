@@ -2,10 +2,14 @@
 package ru.gr05504.ui;
 
 import ru.gr05504.application.CalculationService;
+import ru.gr05504.application.CommandHistory;
 import ru.gr05504.domain.Calculation;
-import ru.gr05504.domain.IntegrationMethod;
+import ru.gr05504.domain.ManyMethods;
+import ru.gr05504.domain.MethodRealised;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.util.List;
 
@@ -15,18 +19,22 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
     private final JTextField lowerField = new JTextField(10);
     private final JTextField upperField = new JTextField(10);
     private final JTextField intervalsField = new JTextField("100", 10);
-    private final JComboBox<IntegrationMethod> methodBox = new JComboBox<>(IntegrationMethod.values());
+    private final JComboBox<MethodRealised> methodBox = new JComboBox<>(ManyMethods.standard().toArray(new MethodRealised[0]));
     private final JButton calculateButton = new JButton("Вычислить");
     private final JButton deleteButton = new JButton("Удалить");
+    private final JButton undoButton = new JButton("Отменить");
     private final DefaultListModel<Calculation> listModel = new DefaultListModel<>();
     private final JList<Calculation> calculationList = new JList<>(listModel);
 
     private final CalculationFormPresenter formPresenter;
     private final CalculationListPresenter listPresenter;
 
-    public CalculatorWindow(CalculationService service) {
-        this.formPresenter = new CalculationFormPresenter(this, service);
-        this.listPresenter = new CalculationListPresenter(this, service);
+    public CalculatorWindow(
+            CalculationService service,
+            CommandHistory history
+            ) {
+        this.formPresenter = new CalculationFormPresenter(this, service, history);
+        this.listPresenter = new CalculationListPresenter(this, service, history);
 
         setTitle("Определённый интеграл");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -34,6 +42,7 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
         setSize(760, 480);
         setLocationRelativeTo(null);
         listPresenter.start();
+        formPresenter.updateButtons();
     }
 
     private void buildLayout() {
@@ -52,6 +61,7 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
         JPanel buttons = new JPanel(new FlowLayout());
         buttons.add(calculateButton);
         buttons.add(deleteButton);
+        buttons.add(undoButton);
 
         JPanel top = new JPanel(new BorderLayout(5, 5));
         top.add(form, BorderLayout.CENTER);
@@ -71,10 +81,24 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
             }
         });
 
-        calculateButton.addActionListener(e -> {
-            if (formPresenter.calculateClicked()) listPresenter.refresh();
-        });
+        calculateButton.addActionListener(e -> formPresenter.calculateClicked());
         deleteButton.addActionListener(e -> listPresenter.deleteSelected());
+        undoButton.addActionListener(e -> formPresenter.undoLast());
+
+        // При любом изменении формы пересчитываем доступность кнопки «Вычислить»
+        DocumentListener inputListener = new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e)  { formPresenter.inputChanged(); }
+            @Override public void removeUpdate(DocumentEvent e)  { formPresenter.inputChanged(); }
+            @Override public void changedUpdate(DocumentEvent e) { formPresenter.inputChanged(); }
+        };
+        formulaField.getDocument().addDocumentListener(inputListener);
+        lowerField.getDocument().addDocumentListener(inputListener);
+        upperField.getDocument().addDocumentListener(inputListener);
+        intervalsField.getDocument().addDocumentListener(inputListener);
+        methodBox.addActionListener(e -> formPresenter.inputChanged());
+
+        // Выбор в списке влияет на кнопку «Удалить»
+        calculationList.addListSelectionListener(e -> listPresenter.selectionChanged());
     }
 
     // Строка списка: параметры решения и ответ
@@ -91,7 +115,7 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
     @Override public String getLowerText()          { return lowerField.getText(); }
     @Override public String getUpperText()          { return upperField.getText(); }
     @Override public String getIntervalsText()      { return intervalsField.getText(); }
-    @Override public IntegrationMethod getMethod()  { return (IntegrationMethod) methodBox.getSelectedItem(); }
+    @Override public MethodRealised getMethod()  { return (MethodRealised) methodBox.getSelectedItem(); }
     @Override public Calculation getSelected()      { return calculationList.getSelectedValue(); }
 
     @Override
@@ -111,4 +135,8 @@ public class CalculatorWindow extends JFrame implements CalculatorView {
     public void showError(String message) {
         JOptionPane.showMessageDialog(this, message);
     }
+
+    @Override public void setCalculateEnabled(boolean enabled) { calculateButton.setEnabled(enabled); }
+    @Override public void setDeleteEnabled(boolean enabled)    { deleteButton.setEnabled(enabled); }
+    @Override public void setUndoEnabled(boolean enabled)      { undoButton.setEnabled(enabled); }
 }
